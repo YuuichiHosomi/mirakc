@@ -37,20 +37,20 @@ Web API endpoints listed below have been implemented as the mirakc extensions:
 
 * [/api/iptv/playlist]
 
-[/api/version]: #/api/version
-[/api/status]: #/api/status
-[/api/channels]: #/api/channels
-[/api/channels/{channel_type}/{channel}/stream]: #/api/channels/{channel_type}/{channel}/stream
-[/api/channels/{channel_type}/{channel}/services/{sid}/stream]: #/api/channels/{channel_type}/{channel}/services/{sid}/stream
-[/api/services]: #/api/services
-[/api/services/{id}]: #/api/services/{id}
-[/api/services/{id}/stream]: #/api/services/{id}/stream
-[/api/programs]: #/api/programs
-[/api/programs/{id}]: #/api/programs/{id}
-[/api/programs/{id}/stream]: #/api/programs/{id}/stream
-[/api/tuners]: #/api/tuners
-[/api/docs]: #/api/docs
-[/api/iptv/playlist]: #/api/iptv/playlist
+[/api/version]: #apiversion
+[/api/status]: #apistatus
+[/api/channels]: #apichannels
+[/api/channels/{channel_type}/{channel}/stream]: #apichannelschannel_typechannelstream
+[/api/channels/{channel_type}/{channel}/services/{sid}/stream]: #apichannelschannel_typechannelservicessidstream
+[/api/services]: #apiservices
+[/api/services/{id}]: #apiservicesid
+[/api/services/{id}/stream]: #apiservicesidstream
+[/api/programs]: #apiprograms
+[/api/programs/{id}]: #apiprogramsid
+[/api/programs/{id}/stream]: #apiprogramsidstream
+[/api/tuners]: #apituners
+[/api/docs]: #apidocs
+[/api/iptv/playlist]: #apiiptvplaylist
 
 ## Incompatibility of the `X-Mirakurun-Priority` header
 
@@ -126,12 +126,6 @@ Returns a list of tuners.
 
 Query parameters have **NOT** been supported.
 
-## /api/iptv/playlist
-
-Returns a M3U8 playlist includes all TV services.
-
-The format of the M3U8 playlist is compatible with EPGStation.
-
 ## /api/docs
 
 Returns a Swagger JSON data extracted from a Mirakurun by using the following
@@ -143,6 +137,12 @@ command:
 ```
 
 See also [issues/13](https://github.com/masnagam/mirakc/issues/13).
+
+## /api/iptv/playlist
+
+Returns a M3U8 playlist includes all TV services.
+
+The format of the M3U8 playlist is compatible with EPGStation.
 
 [EPGStation]: https://github.com/l3tnun/EPGStation
 [BonDriver_mirakc]: https://github.com/epgdatacapbon/BonDriver_mirakc
