@@ -229,7 +229,7 @@ async fn get_channel_stream(
     tuner_manager: actix_web::web::Data<Addr<TunerManagerActor>>,
     epg: actix_web::web::Data<Addr<EpgActor>>,
     path: actix_web::web::Path<ChannelPath>,
-    query: actix_web::web::Query<StreamQuery>,
+    filter_demand: FilterDemand,
     user: TunerUser
 ) -> ApiResult {
     let channel = epg.send(QueryChannelMessage {
@@ -238,8 +238,7 @@ async fn get_channel_stream(
     }).await??;
 
     let filters = make_filters(
-        &config, &channel, None, None, "".to_string(),
-        query.pre_filter_required(), query.post_filter_required())?;
+        &config, &channel, None, None, "".to_string(), &filter_demand)?;
 
     let stream = tuner_manager.send(StartStreamingMessage {
         channel, user
@@ -254,7 +253,7 @@ async fn get_channel_service_stream(
     tuner_manager: actix_web::web::Data<Addr<TunerManagerActor>>,
     epg: actix_web::web::Data<Addr<EpgActor>>,
     path: actix_web::web::Path<ChannelServicePath>,
-    query: actix_web::web::Query<StreamQuery>,
+    filter_demand: FilterDemand,
     user: TunerUser
 ) -> ApiResult {
     let channel = epg.send(QueryChannelMessage {
@@ -263,7 +262,7 @@ async fn get_channel_service_stream(
     }).await??;
 
     do_get_service_stream(
-        config, tuner_manager, channel, path.sid, query, user).await
+        config, tuner_manager, channel, path.sid, filter_demand, user).await
 }
 
 #[actix_web::get("/services/{id}/stream")]
@@ -272,7 +271,7 @@ async fn get_service_stream(
     tuner_manager: actix_web::web::Data<Addr<TunerManagerActor>>,
     epg: actix_web::web::Data<Addr<EpgActor>>,
     path: actix_web::web::Path<ServicePath>,
-    query: actix_web::web::Query<StreamQuery>,
+    filter_demand: FilterDemand,
     user: TunerUser
 ) -> ApiResult {
     let service = epg.send(QueryServiceMessage::ByNidSid {
@@ -281,7 +280,8 @@ async fn get_service_stream(
     }).await??;
 
     do_get_service_stream(
-        config, tuner_manager, service.channel, service.sid, query, user).await
+        config, tuner_manager, service.channel, service.sid, filter_demand,
+        user).await
 }
 
 #[actix_web::get("/programs/{id}/stream")]
@@ -290,7 +290,7 @@ async fn get_program_stream(
     tuner_manager: actix_web::web::Data<Addr<TunerManagerActor>>,
     epg: actix_web::web::Data<Addr<EpgActor>>,
     path: actix_web::web::Path<ProgramPath>,
-    query: actix_web::web::Query<StreamQuery>,
+    filter_demand: FilterDemand,
     user: TunerUser
 ) -> ApiResult {
     let program = epg.send(QueryProgramMessage::ByNidSidEid {
@@ -309,8 +309,7 @@ async fn get_program_stream(
     }).await??;
 
     let filters = make_program_filters(
-        &config, &service.channel, &program, &clock,
-        query.pre_filter_required(), query.post_filter_required())?;
+        &config, &service.channel, &program, &clock, &filter_demand)?;
 
     let stream = tuner_manager.send(StartStreamingMessage {
         channel: service.channel.clone(),
@@ -374,12 +373,10 @@ async fn do_get_service_stream(
     tuner_manager: actix_web::web::Data<Addr<TunerManagerActor>>,
     channel: EpgChannel,
     sid: ServiceId,
-    query: actix_web::web::Query<StreamQuery>,
+    filter_demand: FilterDemand,
     user: TunerUser
 ) -> ApiResult {
-    let filters = make_service_filters(
-        &config, &channel, sid,
-        query.pre_filter_required(), query.post_filter_required())?;
+    let filters = make_service_filters(&config, &channel, sid, &filter_demand)?;
 
     let stream = tuner_manager.send(StartStreamingMessage {
         channel, user
@@ -392,14 +389,11 @@ fn make_service_filters(
     config: &Config,
     channel: &EpgChannel,
     sid: ServiceId,
-    pre_filter_required: bool,
-    post_filter_required: bool,
+    demand: &FilterDemand,
 ) -> Result<Vec<String>, Error> {
     let filter = make_service_filter_command(
         &config.filters.service_filter, sid)?;
-    make_filters(
-        config, channel, Some(sid), None,
-        filter, pre_filter_required, post_filter_required)
+    make_filters(config, channel, Some(sid), None, filter, demand)
 }
 
 fn make_program_filters(
@@ -407,14 +401,13 @@ fn make_program_filters(
     channel: &EpgChannel,
     program: &EpgProgram,
     clock: &Clock,
-    pre_filter_required: bool,
-    post_filter_required: bool,
+    demand: &FilterDemand,
 ) -> Result<Vec<String>, Error> {
     let filter = make_service_filter_command(
         &config.filters.service_filter, program.quad.sid())?;
     let mut filters = make_filters(
         config, channel, Some(program.quad.sid()), Some(program.quad.eid()),
-        filter, pre_filter_required, post_filter_required)?;
+        filter, demand)?;
     let filter = make_program_filter_command(
         &config.filters.program_filter, program.quad.sid(), program.quad.eid(),
         clock)?;
@@ -432,20 +425,9 @@ fn make_filters(
     sid: Option<ServiceId>,
     eid: Option<EventId>,
     filter: String,
-    pre_filter_required: bool,
-    post_filter_required: bool,
+    demand: &FilterDemand,
 ) -> Result<Vec<String>, Error> {
     let mut filters = Vec::new();
-
-    if pre_filter_required {
-        if config.filters.pre_filter.is_empty() {
-            log::warn!("Pre-filter is required, but not defined");
-        } else {
-            let cmd = make_filter_command(
-                &config.filters.pre_filter, channel, sid, eid)?;
-            filters.push(cmd);
-        }
-    }
 
     if filter.is_empty() {
         log::warn!("Filter not defined");
@@ -453,12 +435,12 @@ fn make_filters(
         filters.push(filter);
     }
 
-    if post_filter_required {
-        if config.filters.post_filter.is_empty() {
-            log::warn!("Post-filter is required, but not defined");
+    if demand.decode_filter {
+        if config.filters.decode_filter.is_empty() {
+            log::warn!("decode-filter is required, but not defined");
         } else {
             let cmd = make_filter_command(
-                &config.filters.post_filter, channel, sid, eid)?;
+                &config.filters.decode_filter, channel, sid, eid)?;
             filters.push(cmd);
         }
     }
@@ -609,29 +591,35 @@ struct ProgramPath {
 #[serde(rename_all = "kebab-case")]
 struct StreamQuery {
     #[serde(default)]
-    pre_filter: Option<bool>,
-    #[serde(default)]
-    post_filter: Option<bool>,
-
-    // For compatibility with Mirakurun.
-    // The post-filter parameter can override the decode parameter.
-    #[serde(default)]
     decode: u8,  // default: 0
 }
 
-impl StreamQuery {
-    fn pre_filter_required(&self) -> bool {
-        match self.pre_filter {
-            Some(pre_filter) => pre_filter,
-            None => false,
-        }
-    }
+struct FilterDemand {
+    pre_filter: bool,
+    decode_filter: bool,
+    post_filter: bool,
+}
 
-    fn post_filter_required(&self) -> bool {
-        match (self.post_filter, self.decode) {
-            (Some(post_filter), _) => post_filter,
-            (None, decode) => decode != 0,  // for compatibility with Mirakurun
-        }
+impl actix_web::FromRequest for FilterDemand {
+    type Error = actix_web::Error;
+    type Future = futures::future::Ready<Result<Self, Self::Error>>;
+    type Config = ();
+
+    fn from_request(
+        req: &actix_web::HttpRequest,
+        _: &mut actix_web::dev::Payload
+    ) -> Self::Future {
+        let decode_filter = match actix_web::web::Query::<StreamQuery>::from_query(req.query_string()) {
+            Ok(query) => if query.decode == 0 { false } else { true },
+            Err(err) => return futures::future::err(err.into()),
+        };
+
+        // TODO: pre_filter, post_filter
+        let pre_filter = false;
+        let post_filter = false;
+
+        futures::future::ok(FilterDemand {
+            pre_filter, decode_filter, post_filter })
     }
 }
 
@@ -1008,62 +996,6 @@ mod tests {
                                   decode).as_str()).await;
             assert!(res.status() == actix_web::http::StatusCode::NOT_FOUND);
         }
-    }
-
-    #[test]
-    fn test_stream_query() {
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "").unwrap().into_inner();
-        assert_eq!(query.pre_filter_required(), false);
-        assert_eq!(query.post_filter_required(), false);
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "pre-filter=true").unwrap().into_inner();
-        assert_eq!(query.pre_filter_required(), true);
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "pre-filter=false").unwrap().into_inner();
-        assert_eq!(query.pre_filter_required(), false);
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "pre-filter");
-        assert!(query.is_err());
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "pre-filter=");
-        assert!(query.is_err());
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "pre-filter=1");
-        assert!(query.is_err());
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "post-filter=true").unwrap().into_inner();
-        assert_eq!(query.post_filter_required(), true);
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "post-filter=false").unwrap().into_inner();
-        assert_eq!(query.post_filter_required(), false);
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "decode=1").unwrap().into_inner();
-        assert_eq!(query.post_filter_required(), true);
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "decode=0").unwrap().into_inner();
-        assert_eq!(query.post_filter_required(), false);
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "decode=2").unwrap().into_inner();
-        assert_eq!(query.post_filter_required(), true);
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "post-filter=true&decode=0").unwrap().into_inner();
-        assert_eq!(query.post_filter_required(), true);
-
-        let query = actix_web::web::Query::<StreamQuery>::from_query(
-            "post-filter=false&decode=1").unwrap().into_inner();
-        assert_eq!(query.post_filter_required(), false);
     }
 
     #[actix_rt::test]

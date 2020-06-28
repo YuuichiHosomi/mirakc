@@ -174,6 +174,8 @@ pub struct FiltersConfig {
     #[serde(default = "FiltersConfig::default_program_filter")]
     pub program_filter: String,
     #[serde(default)]
+    pub decode_filter: String,
+    #[serde(default)]
     pub post_filter: String,
 }
 
@@ -205,6 +207,7 @@ impl Default for FiltersConfig {
             tuner_filter: String::new(),
             pre_filter: String::new(),
             service_filter: Self::default_service_filter(),
+            decode_filter: String::new(),
             program_filter: Self::default_program_filter(),
             post_filter: String::new(),
         }
@@ -629,10 +632,11 @@ mod tests {
             "#).unwrap(),
             FiltersConfig {
                 tuner_filter: "filter".to_string(),
-                pre_filter: String::new(),
+                pre_filter: "".to_string(),
                 service_filter: FiltersConfig::default_service_filter(),
+                decode_filter: "".to_string(),
                 program_filter: FiltersConfig::default_program_filter(),
-                post_filter: String::new(),
+                post_filter: "".to_string(),
             });
 
         assert_eq!(
@@ -640,11 +644,12 @@ mod tests {
                 pre-filter: filter
             "#).unwrap(),
             FiltersConfig {
-                tuner_filter: String::new(),
+                tuner_filter: "".to_string(),
                 pre_filter: "filter".to_string(),
                 service_filter: FiltersConfig::default_service_filter(),
+                decode_filter: "".to_string(),
                 program_filter: FiltersConfig::default_program_filter(),
-                post_filter: String::new(),
+                post_filter: "".to_string(),
             });
 
         assert_eq!(
@@ -652,11 +657,25 @@ mod tests {
                 service-filter: filter
             "#).unwrap(),
             FiltersConfig {
-                tuner_filter: String::new(),
-                pre_filter: String::new(),
+                tuner_filter: "".to_string(),
+                pre_filter: "".to_string(),
                 service_filter: "filter".to_string(),
+                decode_filter: "".to_string(),
                 program_filter: FiltersConfig::default_program_filter(),
-                post_filter: String::new(),
+                post_filter: "".to_string(),
+            });
+
+        assert_eq!(
+            serde_yaml::from_str::<FiltersConfig>(r#"
+                decode-filter: filter
+            "#).unwrap(),
+            FiltersConfig {
+                tuner_filter: "".to_string(),
+                pre_filter: "".to_string(),
+                service_filter: FiltersConfig::default_service_filter(),
+                decode_filter: "filter".to_string(),
+                program_filter: FiltersConfig::default_program_filter(),
+                post_filter: "".to_string(),
             });
 
         assert_eq!(
@@ -664,11 +683,12 @@ mod tests {
                 program-filter: filter
             "#).unwrap(),
             FiltersConfig {
-                tuner_filter: String::new(),
-                pre_filter: String::new(),
+                tuner_filter: "".to_string(),
+                pre_filter: "".to_string(),
                 service_filter: FiltersConfig::default_service_filter(),
+                decode_filter: "".to_string(),
                 program_filter: "filter".to_string(),
-                post_filter: String::new(),
+                post_filter: "".to_string(),
             });
 
         assert_eq!(
@@ -676,9 +696,10 @@ mod tests {
                 post-filter: filter
             "#).unwrap(),
             FiltersConfig {
-                tuner_filter: String::new(),
-                pre_filter: String::new(),
+                tuner_filter: "".to_string(),
+                pre_filter: "".to_string(),
                 service_filter: FiltersConfig::default_service_filter(),
+                decode_filter: "".to_string(),
                 program_filter: FiltersConfig::default_program_filter(),
                 post_filter: "filter".to_string(),
             });
