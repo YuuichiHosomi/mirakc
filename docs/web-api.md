@@ -33,6 +33,10 @@ to some kind of issue in BonDriver_Mirakurun or mirakc.
 See [issues/4](https://github.com/masnagam/mirakc/issues/4) for details
 (discussion in Japanese).
 
+Web API endpoints listed below have been implemented as the mirakc extensions:
+
+* [/api/iptv/playlist]
+
 [/api/version]: #/api/version
 [/api/status]: #/api/status
 [/api/channels]: #/api/channels
@@ -46,6 +50,7 @@ See [issues/4](https://github.com/masnagam/mirakc/issues/4) for details
 [/api/programs/{id}/stream]: #/api/programs/{id}/stream
 [/api/tuners]: #/api/tuners
 [/api/docs]: #/api/docs
+[/api/iptv/playlist]: #/api/iptv/playlist
 
 ## Incompatibility of the `X-Mirakurun-Priority` header
 
@@ -121,11 +126,23 @@ Returns a list of tuners.
 
 Query parameters have **NOT** been supported.
 
+## /api/iptv/playlist
+
+Returns a M3U8 playlist includes all TV services.
+
+The format of the M3U8 playlist is compatible with EPGStation.
+
 ## /api/docs
 
-Returns a Swagger JSON data extracted from a Mirakurun by using
-[scripts/mirakurun-openapi-json](../scripts/mirakurun-openapi-json)
-([issues/13](https://github.com/masnagam/mirakc/issues/13)).
+Returns a Swagger JSON data extracted from a Mirakurun by using the following
+command:
+
+```shell
+./scripts/mirakurun-openapi-json -c -w 10 $MIRAKURUN_VERSION | \
+  ./scripts/fixup-openapi-json >/etc/mirakurun.openapi.json
+```
+
+See also [issues/13](https://github.com/masnagam/mirakc/issues/13).
 
 [EPGStation]: https://github.com/l3tnun/EPGStation
 [BonDriver_mirakc]: https://github.com/epgdatacapbon/BonDriver_mirakc
