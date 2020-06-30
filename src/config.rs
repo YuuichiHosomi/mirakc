@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -48,6 +49,10 @@ pub struct Config {
     pub tuners: Vec<TunerConfig>,
     #[serde(default)]
     pub filters: FiltersConfig,
+    #[serde(default)]
+    pub pre_filters: HashMap<String, String>,
+    #[serde(default)]
+    pub post_filters: HashMap<String, String>,
     #[serde(default)]
     pub jobs: JobsConfig,
     #[serde(default)]
@@ -165,16 +170,12 @@ impl TunerConfig {
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 pub struct FiltersConfig {
-    #[serde(default)]
-    pub pre_filter: String,
     #[serde(default = "FiltersConfig::default_service_filter")]
     pub service_filter: String,
     #[serde(default = "FiltersConfig::default_program_filter")]
     pub program_filter: String,
     #[serde(default)]
     pub decode_filter: String,
-    #[serde(default)]
-    pub post_filter: String,
 }
 
 impl FiltersConfig {
@@ -202,11 +203,9 @@ impl FiltersConfig {
 impl Default for FiltersConfig {
     fn default() -> Self {
         FiltersConfig {
-            pre_filter: String::new(),
             service_filter: Self::default_service_filter(),
             decode_filter: String::new(),
             program_filter: Self::default_program_filter(),
-            post_filter: String::new(),
         }
     }
 }
@@ -314,28 +313,9 @@ mod tests {
 
     #[test]
     fn test_config() {
-        let result = serde_yaml::from_str::<Config>("{}");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Default::default());
-
-        let result = serde_yaml::from_str::<Config>(r#"
-            epg:
-              cache-dir: /path/to/epg
-        "#);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Config {
-            last_modified: Default::default(),
-            epg: EpgConfig {
-                cache_dir: Some("/path/to/epg".to_string()),
-            },
-            server: Default::default(),
-            channels: vec![],
-            tuners: vec![],
-            jobs: Default::default(),
-            filters: Default::default(),
-            recorder: Default::default(),
-            mirakurun: Default::default(),
-        });
+        assert_eq!(
+            serde_yaml::from_str::<Config>("{}").unwrap(),
+            Default::default());
 
         let result = serde_yaml::from_str::<Config>(r#"
             unknown:
@@ -346,6 +326,18 @@ mod tests {
 
     #[test]
     fn test_epg_config() {
+        assert_eq!(
+            serde_yaml::from_str::<EpgConfig>("{}").unwrap(),
+            Default::default());
+
+        assert_eq!(
+            serde_yaml::from_str::<EpgConfig>(r#"
+                cache-dir: /path/to/epg
+            "#).unwrap(),
+            EpgConfig {
+                cache_dir: Some("/path/to/epg".to_string()),
+            });
+
         let result = serde_yaml::from_str::<EpgConfig>(r#"
             unknown:
               property: value
@@ -625,26 +617,12 @@ mod tests {
 
         assert_eq!(
             serde_yaml::from_str::<FiltersConfig>(r#"
-                pre-filter: filter
-            "#).unwrap(),
-            FiltersConfig {
-                pre_filter: "filter".to_string(),
-                service_filter: FiltersConfig::default_service_filter(),
-                decode_filter: "".to_string(),
-                program_filter: FiltersConfig::default_program_filter(),
-                post_filter: "".to_string(),
-            });
-
-        assert_eq!(
-            serde_yaml::from_str::<FiltersConfig>(r#"
                 service-filter: filter
             "#).unwrap(),
             FiltersConfig {
-                pre_filter: "".to_string(),
                 service_filter: "filter".to_string(),
                 decode_filter: "".to_string(),
                 program_filter: FiltersConfig::default_program_filter(),
-                post_filter: "".to_string(),
             });
 
         assert_eq!(
@@ -652,11 +630,9 @@ mod tests {
                 decode-filter: filter
             "#).unwrap(),
             FiltersConfig {
-                pre_filter: "".to_string(),
                 service_filter: FiltersConfig::default_service_filter(),
                 decode_filter: "filter".to_string(),
                 program_filter: FiltersConfig::default_program_filter(),
-                post_filter: "".to_string(),
             });
 
         assert_eq!(
@@ -664,23 +640,9 @@ mod tests {
                 program-filter: filter
             "#).unwrap(),
             FiltersConfig {
-                pre_filter: "".to_string(),
                 service_filter: FiltersConfig::default_service_filter(),
                 decode_filter: "".to_string(),
                 program_filter: "filter".to_string(),
-                post_filter: "".to_string(),
-            });
-
-        assert_eq!(
-            serde_yaml::from_str::<FiltersConfig>(r#"
-                post-filter: filter
-            "#).unwrap(),
-            FiltersConfig {
-                pre_filter: "".to_string(),
-                service_filter: FiltersConfig::default_service_filter(),
-                decode_filter: "".to_string(),
-                program_filter: FiltersConfig::default_program_filter(),
-                post_filter: "filter".to_string(),
             });
 
         let result = serde_yaml::from_str::<FiltersConfig>(r#"

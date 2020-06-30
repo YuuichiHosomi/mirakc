@@ -163,6 +163,7 @@ impl EitCollector {
 
         let stream = tuner_manager.send(StartStreamingMessage {
             channel: channel.clone(),
+            pre_filters: Vec::new(),
             user
         }).await??;
 

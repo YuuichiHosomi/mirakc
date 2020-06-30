@@ -78,6 +78,7 @@ impl ServiceScanner {
 
         let stream = stream_manager.send(StartStreamingMessage {
             channel: channel.clone(),
+            pre_filters: Vec::new(),
             user
         }).await??;
 
