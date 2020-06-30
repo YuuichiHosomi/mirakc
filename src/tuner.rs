@@ -106,7 +106,7 @@ impl TunerManager {
             .position(|tuner| tuner.is_available_for(&channel));
         if let Some(index) = found {
             log::info!("tuner#{}: Activate with {}", index, channel);
-            let filter = self.make_filter_command(index, &channel)?;
+            let filter = self.make_pre_filter_command(index, &channel)?;
             let tuner = &mut self.tuners[index];
             tuner.activate(channel, filter)?;
             return Ok(tuner.subscribe(user));
@@ -121,7 +121,7 @@ impl TunerManager {
         if let Some(index) = found {
             log::info!("tuner#{}: Grab tuner, rectivate with {}",
                        index, channel);
-            let filter = self.make_filter_command(index, &channel)?;
+            let filter = self.make_pre_filter_command(index, &channel)?;
             let tuner = &mut self.tuners[index];
             tuner.deactivate();
             tuner.activate(channel, filter)?;
@@ -143,15 +143,16 @@ impl TunerManager {
     }
 
 
-    fn make_filter_command(
+    fn make_pre_filter_command(
         &self,
         tuner_index: usize,
         channel: &EpgChannel,
     ) -> Result<String, Error> {
         let template = mustache::compile_str(
-            &self.config.filters.tuner_filter)?;
+            &self.config.filters.pre_filter)?;
         let data = mustache::MapBuilder::new()
             .insert("index", &tuner_index)?
+            .insert_str("tuner_name", &self.tuners[tuner_index].name)
             .insert_str("channel_name", &channel.name)
             .insert("channel_type", &channel.channel_type)?
             .insert_str("channel", &channel.channel)

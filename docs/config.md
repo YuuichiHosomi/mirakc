@@ -293,25 +293,24 @@ Definitions of filters used in
 
 ### filters.pre-filter
 
-A Mustache template string of a command to process TS packets before a packet
-filter program.
+A Mustache template string of a command to process TS packets before
+broadcasting the TS packets to subscribers.
 
 The command must read TS packets from `stdin`, and output the processed TS
 packets to `stdout`.
 
-An empty string means that no pre-filter program is applied even when the
-`pre-filter=true` query parameter is specified in a streaming API endpoint.
-
 Template variables:
 
-* channel
-  * The `channel` property of a channel defined in the `channels`
+* index
+  * The index of a tuner to be opened
+* tuner_name
+  * The name of a tuner identified by the index
+* channel_name
+  * The `name` property of a channel defined in the `channels`
 * channel_type
   * The `type` property of a channel defined in the `channels`
-* sid (optional)
-  * The idenfiter of the service
-* eid (optional)
-  * The event identifier of the program
+* channel
+  * The `channel` property of a channel defined in the `channels`
 
 ### filters.service-filter
 
